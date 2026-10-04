@@ -8,7 +8,19 @@ export function createToolHandlers(client: CezarClient, readOnly = false) {
   return async (name: ToolName, raw: unknown, signal?: AbortSignal) => {
     try {
       if (readOnly && mutationTools.has(name)) throw failure('read_only', 'This adapter was launched in read-only mode.');
-      const input = toolInputs[name].parse(raw);
+      const parsed=toolInputs[name].safeParse(raw);
+      if(!parsed.success)throw failure('invalid_input','The tool arguments failed validation.');
+      const input=parsed.data;
+      if(name==='wait_for_events'){
+        if(waiting)throw failure('wait_in_progress','Only one wait may be active per MCP connection.');
+        waiting=true;
+        try{
+          const {watches,timeoutMs}=toolInputs.wait_for_events.parse(input);
+          const result=await client.waitForEvents(watches,timeoutMs,signal);
+          const connection=result.observations.some(o=>o.task)?await client.connection(signal):undefined;
+          return success({timedOut:result.timedOut,observations:result.observations.map(({task,...o})=>({...o,...(task&&connection?{task:taskSummary(task,o.taskRef,connection)}:{})}))},result.timedOut?'wait_for_events: timed out with no change.':'wait_for_events: task observations available; read histories for details.');
+        }finally{waiting=false;}
+      }
       const connection = await client.connection(signal);
       let data: JsonRecord;
       switch (name) {

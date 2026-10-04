@@ -5,6 +5,7 @@ import type { TaskRef, ToolInput, WatchBaseline } from '../core/contracts.js';
 import type { CezarClient, Connection, Run, JsonRecord, WaitResult } from '../core/cezar-client.js';
 import { healthWire, projectsWire, workflowsWire, runWire, historyWire, historyProjection, messageWire, continuedWire, cancelledWire, finishedWire, dispatchWire } from './wire.js';
 import { discoverEndpoint, validateEndpoint } from './discovery.js';
+import { watchTasks } from './events.js';
 import { parseJson, readBounded, requestScope } from './transport.js';
 
 const changesWire = z.object({
@@ -14,7 +15,7 @@ const changesWire = z.object({
 });
 function stable(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stable).join(',')}]`;
-  if (value && typeof value === 'object') return `{${Object.entries(value).filter(([,v]) => v !== undefined).sort(([a],[b]) => a.localeCompare(b)).map(([k,v]) => `${JSON.stringify(k)}:${stable(v)}`).join(',')}}`;
+  if (value && typeof value === 'object') return `{${Object.entries(value).filter(([,v]) => v !== undefined).sort(([a],[b]) => a < b ? -1 : a > b ? 1 : 0).map(([k,v]) => `${JSON.stringify(k)}:${stable(v)}`).join(',')}}`;
   return JSON.stringify(value) ?? 'null';
 }
 const digest = (value: unknown) => value === undefined ? null : createHash('sha256').update(stable(value)).digest('hex');
@@ -35,7 +36,10 @@ export class HttpCezarClient implements CezarClient {
     if (this.metadata) { signal?.throwIfAborted(); this.lifetime.signal.throwIfAborted(); return this.metadata; }
     if (this.connecting) return this.connecting;
     this.connecting = (async () => {
-      if (!this.target) this.target = await discoverEndpoint({ fetch: this.request, signal });
+      if (!this.target) {
+        const discovery=requestScope([signal,this.lifetime.signal]);
+        try { this.target=await discoverEndpoint({fetch:this.request,signal:discovery.signal}); } finally {discovery.dispose();}
+      }
       const health = await this.readAt('/api/v1/health', healthWire, signal);
       this.metadata = { targetUrl: this.target, cezarVersion: health.version, compatibility: 'unverified', capabilities: health.capabilities };
       return this.metadata;
@@ -110,7 +114,7 @@ export class HttpCezarClient implements CezarClient {
     return this.readAt(`${path}/changes`, changesWire, signal);
   }
   watchState(run: Run): WatchBaseline['state'] {
-    return { status: run.status.slice(0,128), activity: run.activity?.slice(0,128) ?? null, monitoringWakeAt: run.monitoringWakeAt?.slice(0,128) ?? null, monitoringWakeCapReached: run.monitoringWakeCapReached ?? null, stepDigest: digest(run.steps[run.currentStep]), reportDigest: digest(run.dispatch?.report), questionDigest: digest(run.dispatch?.pendingAsk) };
+    return { status: run.status.slice(0,128), activity: run.activity?.slice(0,128) ?? null, monitoringWakeAt: run.monitoringWakeAt?.slice(0,128) ?? null, monitoringWakeCapReached: run.monitoringWakeCapReached ?? null, stepDigest: digest(run.steps[run.currentStep] ? (({id,name,kind,status,iterations}) => ({id,name,kind,status,iterations}))(run.steps[run.currentStep]!) : undefined), reportDigest: digest(run.dispatch?.report), questionDigest: digest(run.dispatch?.pendingAsk) };
   }
   private async mutationPath(ref: TaskRef, signal?: AbortSignal): Promise<string> {
     const run = await this.getTask(ref,signal);
@@ -145,5 +149,14 @@ export class HttpCezarClient implements CezarClient {
     const input=toolInputs.dispatch_task.parse({...ref,order});
     return this.http(`${await this.mutationPath(ref,signal)}/dispatch`,dispatchWire,{method:'POST',body:input.order,ref,signal});
   }
-  async waitForEvents(_watches: WatchBaseline[], _timeoutMs: number, _signal?: AbortSignal): Promise<WaitResult> { throw failure('not_implemented', 'Event waiting is not implemented.'); }
+  async waitForEvents(watches: WatchBaseline[], timeoutMs: number, signal?: AbortSignal): Promise<WaitResult> {
+    const input=toolInputs.wait_for_events.parse({watches,timeoutMs});
+    return watchTasks(this,input.watches,input.timeoutMs,{signal,lifetime:this.lifetime.signal,open:async(baseline,signal)=>{
+      const path=await this.taskPath({projectId:baseline.projectId,runId:baseline.runId},signal);
+      const response=await this.request(`${this.target}${path}/events?afterSeq=${baseline.afterSeq}`,{signal,redirect:'error',headers:{accept:'text/event-stream'}});
+      if(!response.ok){await response.body?.cancel().catch(()=>{});throw failure(response.status===404?'not_found':'resync_required',`The task stream was refused (HTTP ${response.status}).`,{httpStatus:response.status});}
+      if(!response.headers.get('content-type')?.startsWith('text/event-stream')){await response.body?.cancel().catch(()=>{});throw failure('incompatible_server','The task stream had an unsupported content type.');}
+      return response;
+    }});
+  }
 }

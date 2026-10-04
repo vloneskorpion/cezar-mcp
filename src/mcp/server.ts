@@ -26,7 +26,7 @@ export function createMcpServer({ client, readOnly = false }: { client: CezarCli
   const server = new McpServer({ name: 'cezar-mcp', version: VERSION });
   const handle = createToolHandlers(client,readOnly);
   for (const name of Object.keys(toolInputs) as ToolName[]) {
-    if ((readOnly && mutationTools.has(name)) || name === 'wait_for_events') continue;
+    if (readOnly && mutationTools.has(name)) continue;
     server.registerTool(name, { description: descriptions[name], inputSchema: toolInputs[name], outputSchema: resultSchema, annotations: { readOnlyHint: !mutationTools.has(name), destructiveHint: name === 'cancel_task', idempotentHint: !mutationTools.has(name), openWorldHint: true } }, (input: unknown,ctx: ServerContext) => handle(name,input,ctx.mcpReq.signal));
   }
   server.server.onclose = () => client.close();
