@@ -29,7 +29,7 @@ Follow the source specification's three phases and nine steps below. Use release
 
 ### Phase 1: Standalone connection and inspection
 
-- [ ] 1.1 Establish package and public boundaries.
+- [x] 1.1 Establish package and public boundaries. — f494f13
 - [ ] 1.2 Define wire and core contracts.
 - [ ] 1.3 Implement the CLI, connection and read tools.
 - [ ] 1.4 Prove standalone installation.
