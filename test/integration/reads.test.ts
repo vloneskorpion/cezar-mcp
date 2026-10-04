@@ -2,7 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { HttpCezarClient } from "../../src/cezar/http-client.js";
 import { createToolHandlers } from "../../src/core/tools.js";
-import { fixtureServer, json, fixtureRun } from "../fixtures/server.js";
+import {
+  fixtureServer,
+  json,
+  fixtureRun,
+  fixtureHealth,
+} from "../fixtures/server.js";
 test("scoped reads and baseline preserve concrete identity and reject unknown scope", async () => {
   const fixture = await fixtureServer();
   const client = new HttpCezarClient({ url: fixture.url });
@@ -64,5 +69,34 @@ test("redirects, invalid wire shape and mismatched task identity fail explicitly
     );
   } finally {
     await redirect.close();
+  }
+});
+
+test("cancelling an initial caller neither aborts nor traps another initial caller", async () => {
+  let announce!: () => void;
+  const started = new Promise<void>((resolve) => {
+    announce = resolve;
+  });
+  let healthReads = 0;
+  const fixture = await fixtureServer((req, res) => {
+    if (req.url === "/api/v1/health" && ++healthReads === 1) {
+      announce();
+      // Hold only the first request until its caller aborts it.
+      return true;
+    }
+  });
+  const client = new HttpCezarClient({ url: fixture.url });
+  const abort = new AbortController();
+  try {
+    const first = client.connection(abort.signal);
+    await started;
+    const second = client.connection();
+    abort.abort();
+    await assert.rejects(first);
+    assert.equal((await second).cezarVersion, fixtureHealth.version);
+    assert.equal(healthReads, 2);
+  } finally {
+    client.close();
+    await fixture.close();
   }
 });

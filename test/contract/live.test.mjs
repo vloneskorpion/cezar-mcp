@@ -271,6 +271,13 @@ test(
         autonomous: false,
       });
       const refs = [first, second].map((t) => ({ projectId, runId: t.runId }));
+      const listed = await call("list_tasks", { projectId });
+      assert.ok(listed.tasks.some((task) => task.runId === refs[0].runId));
+      const renamed = await call("update_task", {
+        ...refs[0],
+        patch: { title: "Contract supervisor worker" },
+      });
+      assert.equal(renamed.runId, refs[0].runId);
       const initial = await Promise.all(refs.map((r) => call("get_task", r)));
       const observations = await call("wait_for_events", {
         watches: initial.map((t) => t.baseline),
@@ -292,6 +299,9 @@ test(
         "worker pending question",
       );
       await settle(refs[1], ["waiting"]);
+      await call("get_changes", { ...refs[0], view: "summary" });
+      await call("get_changes", { ...refs[0], view: "diff" });
+      proofs.push("task listing, title update and attributed summary/diff");
       const history = await call("read_messages", refs[0]);
       assert.ok(history.itemCount > 0);
       const sent = await call("send_message", {

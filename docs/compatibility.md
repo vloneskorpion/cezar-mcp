@@ -21,7 +21,7 @@ The harness creates a temporary git repository, HOME, CEZ_HOME, XDG config/cache
 
 This cezar revision also makes an unconditional registry-update probe. There is no claimed disable flag for that path: a test-only Node preload denies outbound fetch/socket connections except loopback and denies Unix sockets. The harness proves those denials before launch. This preload changes neither cezar's source/artifact nor the adapter runtime. It terminates only the process group it created and deletes only its temporary sandbox.
 
-The suite exercises real creation of two roots, bounded multi-task waits, ordinary pending questions, transcript reads, exact slash messages, finish, explicit continuation, real child dispatch, cancellation, terminal-parent and wrong-project refusals. Closing MCP is checked against an independent waiting task, which remains alive. Fixtures separately exercise uncertain write outcomes, all delivery variants, hidden metrics, byte limits and stream cleanup.
+The suite exercises real creation of two roots, bounded multi-task waits, ordinary pending questions, task listing, title updates, attributed changes/diff, transcript reads, exact slash messages, finish, explicit continuation, real child dispatch, cancellation, terminal-parent and wrong-project refusals. Closing MCP is checked against an independent waiting task, which remains alive. Fixtures separately exercise uncertain write outcomes, all delivery variants, hidden metrics, byte limits and stream cleanup.
 
 ## Wire decisions grounded in the target
 

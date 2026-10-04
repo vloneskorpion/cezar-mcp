@@ -65,7 +65,7 @@ Inputs are strict and schema-derived; discover them with your host's tool catalo
 | `dispatch_task` | Engine-managed child under a real nonterminal parent |
 | `wait_for_events` | Bounded observations for up to sixteen task baselines |
 
-Success has `{ok:true,data,truncated}` in `structuredContent`, plus a short text summary. Failure has `{ok:false,error:{code,message,outcome,...}}` with MCP `isError:true`. Output is capped at 64 KiB; individual free-text previews at 8192 characters. Follow returned collection offsets/history cursors and cockpit links for omitted content. Unknown cezar statuses remain readable and prevent existing-task mutations. Missing costs or usage stay absent; health capability flags control metric visibility.
+Success has `{ok:true,data,truncated}` in `structuredContent`, plus a short text summary. Failure has `{ok:false,error:{code,message,outcome,...}}` with MCP `isError:true`. Output is capped at 64 KiB; individual free-text previews at 8192 UTF-8 bytes. Follow returned collection offsets/history cursors and cockpit links for omitted content. Unknown cezar statuses remain readable and prevent existing-task mutations. Missing costs or usage stay absent; health capability flags control metric visibility.
 
 Creation confirms acceptance and actual initial status, not completion. Omitted `autonomous` preserves cezar's default. Requested dispatch intent is reported separately from whether the actual returned run applied it. Messages preserve slash syntax and distinguish `{delivered:true}`, `{queued:true,message:{id,createdAt}}`, and `{deferred:true}`. External instructions are user-role messages, not an authenticated special supervisor role. A closed session requires an explicit `continue_task`; no fallback occurs.
 

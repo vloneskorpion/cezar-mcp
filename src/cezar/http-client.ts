@@ -73,7 +73,6 @@ export interface HttpClientOptions {
 export class HttpCezarClient implements CezarClient {
   private target?: string;
   private metadata?: Connection;
-  private connecting?: Promise<Connection>;
   private readonly lifetime = new AbortController();
   private readonly request: typeof fetch;
   private projects = new Set<string>();
@@ -91,33 +90,29 @@ export class HttpCezarClient implements CezarClient {
       this.lifetime.signal.throwIfAborted();
       return this.metadata;
     }
-    if (this.connecting) return this.connecting;
-    this.connecting = (async () => {
-      if (!this.target) {
-        const discovery = requestScope([signal, this.lifetime.signal]);
-        try {
-          this.target = await discoverEndpoint({
-            fetch: this.request,
-            signal: discovery.signal,
-          });
-        } finally {
-          discovery.dispose();
-        }
+    // Each caller owns its initial requests. Sharing a caller-signalled promise
+    // would let cancellation fail another caller or prevent its cleanup.
+    if (!this.target) {
+      const discovery = requestScope([signal, this.lifetime.signal]);
+      try {
+        const selected = await discoverEndpoint({
+          fetch: this.request,
+          signal: discovery.signal,
+        });
+        discovery.signal.throwIfAborted();
+        this.target ??= selected; // The first successful selection is immutable.
+      } finally {
+        discovery.dispose();
       }
-      const health = await this.readAt("/api/v1/health", healthWire, signal);
-      this.metadata = {
-        targetUrl: this.target,
-        cezarVersion: health.version,
-        compatibility: "unverified",
-        capabilities: health.capabilities,
-      };
-      return this.metadata;
-    })();
-    try {
-      return await this.connecting;
-    } finally {
-      this.connecting = undefined;
     }
+    const health = await this.readAt("/api/v1/health", healthWire, signal);
+    this.metadata = {
+      targetUrl: this.target,
+      cezarVersion: health.version,
+      compatibility: "unverified",
+      capabilities: health.capabilities,
+    };
+    return this.metadata;
   }
   private async readAt<S extends z.ZodType>(
     path: string,

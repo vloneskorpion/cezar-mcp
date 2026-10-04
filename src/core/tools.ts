@@ -94,10 +94,10 @@ export function createToolHandlers(client: CezarClient, readOnly = false) {
             toolInputs.list_tasks.parse(input);
           const all = (await client.listTasks(projectId, signal))
             .filter(
-              (r) =>
-                (!statuses || (statuses as string[]).includes(r.status)) &&
+              (run) =>
+                (!statuses || (statuses as string[]).includes(run.status)) &&
                 (!query ||
-                  `${r.title} ${r.task}`
+                  `${run.title} ${run.task}`
                     .toLocaleLowerCase()
                     .includes(query.toLocaleLowerCase())),
             )
@@ -108,7 +108,9 @@ export function createToolHandlers(client: CezarClient, readOnly = false) {
             );
           const rows = all
             .slice(offset, offset + limit)
-            .map((r) => taskSummary(r, { projectId, runId: r.id }, connection));
+            .map((run) =>
+              taskSummary(run, { projectId, runId: run.id }, connection),
+            );
           data = {
             projectId,
             tasks: rows,

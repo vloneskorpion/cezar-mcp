@@ -3,11 +3,12 @@
   "cezarVersion": "0.14.0",
   "revision": "1f40016d87d2b7ace23eedbdeae42bdf60c52684",
   "artifactDigest": "bb3bf4acd45f3925de1753d5da8375a94eb15a0ecfa5ff7e5d68867108eec837",
-  "checkedAt": "2026-10-04T16:11:55.202Z",
+  "checkedAt": "2026-10-04T16:17:29.838Z",
   "checks": [
     "isolated cezar boot",
     "packaged SDK handshake, 14 tools, concrete scope",
     "two root workers, bounded multi-task wait",
+    "task listing, title update and attributed summary/diff",
     "pending question, transcript history, exact slash message delivered",
     "finish and explicit continuation",
     "real child dispatch, cancellation and settled-parent refusal",

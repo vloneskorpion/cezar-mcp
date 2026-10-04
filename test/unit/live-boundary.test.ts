@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import type { HistoryPage } from "../../src/core/cezar-client.js";
 import { historyWire, runWire } from "../../src/cezar/wire.js";
 import { fixtureRun } from "../fixtures/server.js";
 import { HttpCezarClient } from "../../src/cezar/http-client.js";
@@ -49,7 +50,7 @@ test("cezar current step is optional identity, and hidden usage does not change 
 test("ordinary root pending questions are projected from validated history and clear on a reply", async () => {
   const { pendingQuestion } = await import("../../src/core/questions.js");
   const run = fixtureRun();
-  const page = {
+  const page: HistoryPage = {
     events: [
       {
         seq: 2,
@@ -76,7 +77,7 @@ test("ordinary root pending questions are projected from validated history and c
     seq: 3,
     ts: "later",
     type: "user-message",
-    payload: { text: "A" } as never,
+    payload: { text: "A" },
   });
   assert.equal(pendingQuestion(run, page), undefined);
 });
