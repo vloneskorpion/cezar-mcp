@@ -25,6 +25,8 @@ Follow the source specification's three phases and nine steps below. Use release
 
 ## Progress
 
+PR: #2
+
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
 ### Phase 1: Standalone connection and inspection
@@ -32,7 +34,7 @@ Follow the source specification's three phases and nine steps below. Use release
 - [x] 1.1 Establish package and public boundaries. — f494f13
 - [x] 1.2 Define wire and core contracts. — 2da7e4f
 - [x] 1.3 Implement the CLI, connection and read tools. — 040deaa
-- [ ] 1.4 Prove standalone installation.
+- [x] 1.4 Prove standalone installation. — 640c109
 
 ### Phase 2: Task control
 
