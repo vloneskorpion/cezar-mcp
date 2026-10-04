@@ -106,8 +106,9 @@ Every PR passes the full validation gate before review sign-off, in this order:
 - `npm test`
 - `npm run build`
 - `npm run test:package`
+- `npm run test:contract:live`
 
-Live conformance is added when its isolated harness exists in Phase 3.
+Provision the disposable pinned artifact with `node scripts/provision-cezar.mjs` and set `CEZAR_CONTRACT_ARTIFACT` to its generated manifest before running the gate. Missing live prerequisites fail; fixtures are not live compatibility evidence. CI provisions that artifact explicitly and runs the gate on Node 20 and 24.
 
 Any non-zero exit fails the gate and blocks the PR. The implementing skills run the gate before opening a PR, and `om-check-and-commit` runs it before pushing a hand-worked branch. The command list lives in `.ai/agentic.config.json`; when it changes, update it there and in this section together.
 
