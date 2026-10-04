@@ -1,0 +1,7 @@
+.ai/tmp/
+.ai/qa/artifacts_*/
+.ai/qa/test-env.json
+node_modules/
+dist/
+coverage/
+.env
