@@ -1,0 +1,20 @@
+{
+  "name": "@vloneskorpion/cezar-mcp",
+  "version": "0.1.0",
+  "description": "Standalone stdio MCP supervision of an existing cezar cockpit",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=20" },
+  "bin": { "cezar-mcp": "dist/bin.js" },
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist", "docs", "README.md", "LICENSE", ".env.example"],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/unit/*.test.ts test/integration/*.test.ts",
+    "build": "tsc -p tsconfig.build.json && node scripts/executable.mjs",
+    "test:package": "node --import tsx --test test/package/*.test.ts"
+  },
+  "dependencies": { "@modelcontextprotocol/server": "2.3.0", "zod": "4.6.5" },
+  "devDependencies": { "@modelcontextprotocol/client": "2.3.0", "@types/node": "20.19.37", "tsx": "4.21.0", "typescript": "5.9.3" },
+  "repository": { "type": "git", "url": "git+https://github.com/vloneskorpion/cezar-mcp.git" }
+}
