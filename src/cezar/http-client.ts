@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { CezarError, failure, taskRefSchema, projectIdSchema } from '../core/contracts.js';
+import { CezarError, failure, taskRefSchema, projectIdSchema, toolInputs, knownStatusSchema } from '../core/contracts.js';
 import type { TaskRef, ToolInput, WatchBaseline } from '../core/contracts.js';
 import type { CezarClient, Connection, Run, JsonRecord, WaitResult } from '../core/cezar-client.js';
-import { healthWire, projectsWire, workflowsWire, runWire, historyWire, historyProjection } from './wire.js';
+import { healthWire, projectsWire, workflowsWire, runWire, historyWire, historyProjection, messageWire, continuedWire, cancelledWire, finishedWire, dispatchWire } from './wire.js';
 import { discoverEndpoint, validateEndpoint } from './discovery.js';
 import { parseJson, readBounded, requestScope } from './transport.js';
 
@@ -66,6 +66,7 @@ export class HttpCezarClient implements CezarClient {
       const value: unknown = options.text ? raw : parseJson(raw);
       const parsed = schema.safeParse(value);
       if (!parsed.success) throw failure('incompatible_server', 'Cezar returned an unsupported response shape.');
+      if (options.ref && Object.is(schema, runWire) && (parsed.data as Run).id !== options.ref.runId) throw failure('incompatible_server', 'Task identity does not match the scoped request.');
       return parsed.data;
     } catch (error) {
       if (mutation && sent && (!(error instanceof CezarError) || error.detail.outcome !== 'rejected')) {
@@ -111,12 +112,38 @@ export class HttpCezarClient implements CezarClient {
   watchState(run: Run): WatchBaseline['state'] {
     return { status: run.status.slice(0,128), activity: run.activity?.slice(0,128) ?? null, monitoringWakeAt: run.monitoringWakeAt?.slice(0,128) ?? null, monitoringWakeCapReached: run.monitoringWakeCapReached ?? null, stepDigest: digest(run.steps[run.currentStep]), reportDigest: digest(run.dispatch?.report), questionDigest: digest(run.dispatch?.pendingAsk) };
   }
-  async createTask(_input: ToolInput<'create_task'>, _signal?: AbortSignal): Promise<Run> { throw failure('not_implemented', 'Task control is not implemented.'); }
-  async updateTask(_ref: TaskRef, _patch: ToolInput<'update_task'>['patch'], _signal?: AbortSignal): Promise<Run> { throw failure('not_implemented', 'Task control is not implemented.'); }
-  async sendMessage(_ref: TaskRef, _text: string, _signal?: AbortSignal): Promise<import('../core/cezar-client.js').MessageAcceptance> { throw failure('not_implemented', 'Task control is not implemented.'); }
-  async continueTask(_ref: TaskRef, _input: Omit<ToolInput<'continue_task'>, keyof TaskRef>, _signal?: AbortSignal): Promise<{continued:true}> { throw failure('not_implemented', 'Task control is not implemented.'); }
-  async cancelTask(_ref: TaskRef, _signal?: AbortSignal): Promise<{cancelled:boolean}> { throw failure('not_implemented', 'Task control is not implemented.'); }
-  async finishTask(_ref: TaskRef, _signal?: AbortSignal): Promise<{finished:true}> { throw failure('not_implemented', 'Task control is not implemented.'); }
-  async dispatchTask(_ref: TaskRef, _order: ToolInput<'dispatch_task'>['order'], _signal?: AbortSignal): Promise<{id:string;branch?:string}> { throw failure('not_implemented', 'Task control is not implemented.'); }
+  private async mutationPath(ref: TaskRef, signal?: AbortSignal): Promise<string> {
+    const run = await this.getTask(ref,signal);
+    if (!knownStatusSchema.safeParse(run.status).success) throw failure('unsupported_task_status', 'The observed status is unsupported; inspect the task in the cockpit before changing it.', { taskRef:ref });
+    return this.taskPath(ref,signal);
+  }
+  async createTask(input: ToolInput<'create_task'>, signal?: AbortSignal): Promise<Run> {
+    const { projectId,...body } = toolInputs.create_task.parse(input);
+    const path = await this.scopeProject(projectId,signal);
+    if (body.dispatch !== undefined && !(await this.connection(signal)).capabilities.dispatch) throw failure('dispatch_disabled', 'Dispatch is disabled; task creation was not attempted.');
+    return this.http(`${path}/runs`,runWire,{method:'POST',body:{...body,variants:1,worktree:true},signal});
+  }
+  async updateTask(ref: TaskRef, patch: ToolInput<'update_task'>['patch'], signal?: AbortSignal): Promise<Run> {
+    const input=toolInputs.update_task.parse({...ref,patch});
+    return this.http(await this.mutationPath(ref,signal),runWire,{method:'PATCH',body:input.patch,ref,signal});
+  }
+  async sendMessage(ref: TaskRef, text: string, signal?: AbortSignal) {
+    const input=toolInputs.send_message.parse({...ref,text});
+    return this.http(`${await this.mutationPath(ref,signal)}/messages`,messageWire,{method:'POST',body:{text:input.text},ref,signal});
+  }
+  async continueTask(ref: TaskRef, input: Omit<ToolInput<'continue_task'>, keyof TaskRef>, signal?: AbortSignal) {
+    const {projectId: _project,runId:_run,...body}=toolInputs.continue_task.parse({...ref,...input});
+    return this.http(`${await this.mutationPath(ref,signal)}/continue`,continuedWire,{method:'POST',body,ref,signal});
+  }
+  async cancelTask(ref: TaskRef, signal?: AbortSignal) {
+    return this.http(`${await this.mutationPath(ref,signal)}/cancel`,cancelledWire,{method:'POST',ref,signal});
+  }
+  async finishTask(ref: TaskRef, signal?: AbortSignal) {
+    return this.http(`${await this.mutationPath(ref,signal)}/finish`,finishedWire,{method:'POST',ref,signal});
+  }
+  async dispatchTask(ref: TaskRef, order: ToolInput<'dispatch_task'>['order'], signal?: AbortSignal) {
+    const input=toolInputs.dispatch_task.parse({...ref,order});
+    return this.http(`${await this.mutationPath(ref,signal)}/dispatch`,dispatchWire,{method:'POST',body:input.order,ref,signal});
+  }
   async waitForEvents(_watches: WatchBaseline[], _timeoutMs: number, _signal?: AbortSignal): Promise<WaitResult> { throw failure('not_implemented', 'Event waiting is not implemented.'); }
 }

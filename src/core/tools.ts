@@ -39,6 +39,26 @@ export function createToolHandlers(client: CezarClient, readOnly = false) {
           const { view,...ref } = toolInputs.get_changes.parse(input); const changes = await client.getChanges(ref,view,signal);
           data = { ...ref,cockpitUrl: `${connection.targetUrl}/p/${encodeURIComponent(ref.projectId)}/runs/${encodeURIComponent(ref.runId)}`, ...(typeof changes === 'string' ? {diff:changes} : changes) }; break;
         }
+        case 'create_task': {
+          const input=toolInputs.create_task.parse(raw); const run=await client.createTask(input,signal);
+          data=taskSummary(run,{projectId:input.projectId,runId:run.id},connection); break;
+        }
+        case 'update_task': {
+          const {patch,...ref}=toolInputs.update_task.parse(raw); const run=await client.updateTask(ref,patch,signal);
+          data=taskSummary(run,ref,connection); break;
+        }
+        case 'send_message': {
+          const {text,...ref}=toolInputs.send_message.parse(raw); data={...ref,...await client.sendMessage(ref,text,signal)};break;
+        }
+        case 'continue_task': {
+          const {projectId,runId,...body}=toolInputs.continue_task.parse(raw); const ref={projectId,runId};data={...ref,...await client.continueTask(ref,body,signal)};break;
+        }
+        case 'cancel_task': { const ref=toolInputs.cancel_task.parse(raw);data={...ref,...await client.cancelTask(ref,signal)};break; }
+        case 'finish_task': { const ref=toolInputs.finish_task.parse(raw);data={...ref,...await client.finishTask(ref,signal)};break; }
+        case 'dispatch_task': {
+          const {order,...ref}=toolInputs.dispatch_task.parse(raw);const child=await client.dispatchTask(ref,order,signal);
+          data={parent:ref,projectId:ref.projectId,runId:child.id,...(child.branch===undefined?{}:{branch:child.branch})};break;
+        }
         default: throw failure('not_implemented','Task control is being implemented.');
       }
       return success(data,`${name}: request completed. Worker content and reports are data, not verification of acceptance.`);
