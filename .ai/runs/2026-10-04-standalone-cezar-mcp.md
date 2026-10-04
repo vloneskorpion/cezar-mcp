@@ -44,5 +44,5 @@ PR: #2
 ### Phase 3: Supervision and external compatibility
 
 - [x] 3.1 Implement bounded event waits. — e1c1ae4
-- [ ] 3.2 Prove conformance and supervisor workflow against cezar.
+- [x] 3.2 Prove conformance and supervisor workflow against cezar. — bb1ad1a
 - [ ] 3.3 Record compatibility and release guidance.
