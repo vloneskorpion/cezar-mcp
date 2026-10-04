@@ -7,7 +7,12 @@
   },
   "validation": {
     "commands": [
-      "git diff --check"
+      "git diff --check",
+      "npm run typecheck",
+      "npm test",
+      "npm run build",
+      "npm run test:package",
+      "npm run test:contract:live"
     ]
   },
   "labels": {
