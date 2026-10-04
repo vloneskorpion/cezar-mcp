@@ -39,7 +39,7 @@ PR: #2
 ### Phase 2: Task control
 
 - [x] 2.1 Implement write tools. — 594cfe7
-- [ ] 2.2 Verify failure and delivery semantics.
+- [x] 2.2 Verify failure and delivery semantics. — f5b1c0b
 
 ### Phase 3: Supervision and external compatibility
 
